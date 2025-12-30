@@ -10,6 +10,7 @@ import { extractRedChannelAverage } from '@/lib/video-processing/redChannelIsola
 import { PPGExtractor } from '@/lib/signal-processing/ppgExtraction';
 import { HeartRateDetector } from '@/lib/signal-processing/heartRateDetection';
 import { GlucoseInference } from '@/lib/ml/inference';
+import { saveMeasurement } from '@/lib/firebase/firestore';
 
 export default function MeasurePage() {
     const [isMeasuring, setIsMeasuring] = useState(false);
@@ -126,17 +127,21 @@ export default function MeasurePage() {
         }
 
         const result = {
-            id: generateId(),
+            id: generateId(), // Firestore will generate its own ID too, but keeping this for internal consistency if needed
             timestamp: Date.now(),
             glucose: inferenceResult.glucose,
             bpm: bpm > 0 ? bpm : 75,
             confidence: inferenceResult.confidence
         };
 
-        // Save to local history for Dashboard
-        const history = JSON.parse(localStorage.getItem('glucovision_history') || '[]');
-        history.unshift(result);
-        localStorage.setItem('glucovision_history', JSON.stringify(history));
+        // Save to Firestore
+        try {
+            await saveMeasurement(result);
+        } catch (error) {
+            console.error("Failed to save to Firestore:", error);
+            // Optional: fallback to localStorage if offline? 
+            // For now, sticking to user request "use firestore".
+        }
 
         // Simulate processing delay then redirect
         setTimeout(() => {

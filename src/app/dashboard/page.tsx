@@ -4,17 +4,29 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Activity, Calendar, Settings, ChevronRight, Plus } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { getMeasurements } from '@/lib/firebase/firestore';
 
 export default function DashboardPage() {
     const [history, setHistory] = useState<any[]>([]);
     const [latest, setLatest] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const data = JSON.parse(localStorage.getItem('glucovision_history') || '[]');
-        setHistory(data);
-        if (data.length > 0) {
-            setLatest(data[0]);
-        }
+        const loadData = async () => {
+            try {
+                const data = await getMeasurements();
+                setHistory(data);
+                if (data.length > 0) {
+                    setLatest(data[0]);
+                }
+            } catch (error) {
+                console.error("Failed to load history:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadData();
     }, []);
 
     const getStatusColor = (val: number) => {
