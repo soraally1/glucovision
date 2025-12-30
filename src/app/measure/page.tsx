@@ -132,12 +132,14 @@ export default function MeasurePage() {
             timestamp: Date.now(),
             glucose: inferenceResult.glucose,
             bpm: bpm > 0 ? bpm : 75,
-            confidence: inferenceResult.confidence
+            confidence: inferenceResult.confidence,
+            rawPPG: [...signalBuffer.current] // Save raw data for Dataset!
         };
 
-        // Save to Firestore
+        // Save to Firestore (Now serves as Dataset Collector)
         try {
             await saveMeasurement(result);
+            console.log("Dataset updated with new sample.");
         } catch (error) {
             console.error("Failed to save to Firestore:", error);
         }
@@ -264,29 +266,37 @@ export default function MeasurePage() {
 
                 {/* Result Modal Overlay */}
                 {resultData && (
-                    <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-6 animate-in fade-in duration-300">
-                        <div className="bg-white rounded-3xl shadow-xl border border-blue-100 p-8 w-full max-w-sm text-center transform scale-100 animate-in zoom-in-95 duration-300">
-                            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Activity className="w-8 h-8" />
-                            </div>
-                            <h3 className="text-xl font-bold text-slate-800 mb-1">Pengukuran Selesai!</h3>
-                            <p className="text-slate-500 mb-6">Hasil estimasi glukosa Anda:</p>
+                    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center p-6 animate-in fade-in duration-300">
+                        {/* Glassmorphism Backdrop */}
+                        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"></div>
 
-                            <div className="mb-8">
-                                <span className="text-5xl font-extrabold text-blue-600 tracking-tight">{resultData.glucose}</span>
-                                <span className="text-lg text-slate-400 font-medium ml-2">mg/dL</span>
+                        <div className="relative bg-white/90 backdrop-blur-xl rounded-[2rem] shadow-2xl border border-white/50 p-8 w-full max-w-sm text-center transform scale-100 animate-in zoom-in-95 duration-300">
+
+                            {/* Success Icon */}
+                            <div className="w-20 h-20 bg-gradient-to-tr from-green-400 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-200">
+                                <Activity className="w-10 h-10 text-white" strokeWidth={2.5} />
+                            </div>
+
+                            <h3 className="text-2xl font-bold text-slate-800 mb-2">Pengukuran Selesai!</h3>
+                            <p className="text-slate-500 mb-8 font-medium">Estimasi Gula Darah:</p>
+
+                            <div className="mb-10 relative">
+                                <span className="text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 tracking-tighter">
+                                    {resultData.glucose}
+                                </span>
+                                <span className="absolute top-4 -right-4 text-xl text-slate-500 font-bold">mg/dL</span>
                             </div>
 
                             <div className="flex flex-col gap-3">
                                 <Link
                                     href="/dashboard"
-                                    className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-blue-700 transition-colors"
+                                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-[0.98]"
                                 >
                                     Lihat Dashboard
                                 </Link>
                                 <button
                                     onClick={() => { setResultData(null); startMeasurement(); }}
-                                    className="w-full bg-slate-100 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-200 transition-colors"
+                                    className="w-full bg-white border border-slate-200 text-slate-600 font-bold py-4 rounded-xl hover:bg-slate-50 transition-colors"
                                 >
                                     Ukur Lagi
                                 </button>

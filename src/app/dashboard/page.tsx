@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Activity, Calendar, Settings, ChevronRight, Plus } from 'lucide-react';
+import { ArrowLeft, Activity, Calendar, Settings, ChevronRight, Plus, Brain } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { getMeasurements } from '@/lib/firebase/firestore';
 
@@ -47,7 +47,11 @@ export default function DashboardPage() {
                 <Link href="/" className="font-bold text-xl tracking-tight text-blue-900">
                     GlucoVision
                 </Link>
-                <div className="flex gap-4">
+                <div className="flex gap-2">
+                    <Link href="/training" className="p-2 bg-blue-50 rounded-full text-blue-600 hover:bg-blue-100 transition flex items-center gap-2 px-3">
+                        <Brain className="w-4 h-4" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Lab</span>
+                    </Link>
                     <Link href="/calibration" className="p-2 bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200 transition">
                         <Settings className="w-5 h-5" />
                     </Link>

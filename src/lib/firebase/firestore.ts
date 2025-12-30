@@ -9,6 +9,7 @@ export interface MeasurementData {
     glucose: number;
     bpm: number;
     confidence: number;
+    rawPPG?: number[]; // ADDED: Raw signal data for AI Dataset
     isSynced?: boolean; // For future offline sync usage
 }
 
