@@ -8,9 +8,18 @@
     "start": "next start"
   },
   "dependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-layers": "^4.22.0",
+    "chart.js": "^4.5.1",
+    "crypto-js": "^4.2.0",
+    "date-fns": "^4.1.0",
+    "firebase": "^12.7.0",
+    "lucide-react": "^0.562.0",
     "next": "16.1.1",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "19.2.3",
+    "recharts": "^3.6.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
