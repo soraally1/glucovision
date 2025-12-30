@@ -16,7 +16,34 @@ export class ModelTrainer {
         } catch (e) {
             console.log("No saved model found, creating new instance.");
             this.model = createGlucoseModel();
+            // Warmup with synthetic data to avoid garbage predictions (random weights) in the beginning
+            await this.warmupModel();
         }
+    }
+
+    /**
+     * Fine-tunes the initial model with synthetic 'normal range' data.
+     * This ensures the model outputs sane values (e.g. 90-110) instead of 0 or NaN on first run.
+     */
+    private async warmupModel() {
+        if (!this.model) return;
+        console.log("Warming up model with synthetic data...");
+
+        // Generate 20 synthetic samples mapping to "Healthy" range (80 - 120)
+        const inputs: number[][] = [];
+        const labels: number[] = [];
+
+        for (let i = 0; i < 20; i++) {
+            // Create a fake PPG signal (sine wave + noise)
+            const signal = Array(300).fill(0).map((_, idx) => Math.sin(idx * 0.1) * 0.5 + 0.5 + (Math.random() * 0.1));
+            const targetGlucose = 85 + (Math.random() * 30); // 85 - 115 range
+
+            inputs.push(signal);
+            labels.push(targetGlucose);
+        }
+
+        await this.trainBatch(inputs, labels);
+        console.log("Model warmup complete.");
     }
 
     /**
