@@ -19,6 +19,7 @@ export default function MeasurePage() {
     const [measurementProgress, setMeasurementProgress] = useState(0);
     const [statusMessage, setStatusMessage] = useState("Siapkan jari di kamera");
     const [chartData, setChartData] = useState<{ val: number }[]>([]);
+    const [resultData, setResultData] = useState<{ glucose: number } | null>(null);
 
     const ppgExtractor = useRef(new PPGExtractor());
     const hrDetector = useRef(new HeartRateDetector());
@@ -139,14 +140,10 @@ export default function MeasurePage() {
             await saveMeasurement(result);
         } catch (error) {
             console.error("Failed to save to Firestore:", error);
-            // Optional: fallback to localStorage if offline? 
-            // For now, sticking to user request "use firestore".
         }
 
-        // Simulate processing delay then redirect
-        setTimeout(() => {
-            window.location.href = '/dashboard';
-        }, 1500);
+        // Show result modal instead of redirecting immediately
+        setResultData({ glucose: inferenceResult.glucose });
     };
 
     return (
@@ -237,7 +234,7 @@ export default function MeasurePage() {
 
                 {/* Controls */}
                 <div className="mt-auto">
-                    {!isMeasuring ? (
+                    {!isMeasuring && !resultData ? (
                         <button
                             onClick={startMeasurement}
                             className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 transition-all"
@@ -254,7 +251,7 @@ export default function MeasurePage() {
                                 </>
                             )}
                         </button>
-                    ) : (
+                    ) : isMeasuring ? (
                         <button
                             onClick={stopMeasurement}
                             className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-4 rounded-xl border border-red-200 flex items-center justify-center gap-2 transition-all"
@@ -262,8 +259,41 @@ export default function MeasurePage() {
                             <Square className="w-5 h-5 fill-current" />
                             <span>Berhenti</span>
                         </button>
-                    )}
+                    ) : null}
                 </div>
+
+                {/* Result Modal Overlay */}
+                {resultData && (
+                    <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-6 animate-in fade-in duration-300">
+                        <div className="bg-white rounded-3xl shadow-xl border border-blue-100 p-8 w-full max-w-sm text-center transform scale-100 animate-in zoom-in-95 duration-300">
+                            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Activity className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-800 mb-1">Pengukuran Selesai!</h3>
+                            <p className="text-slate-500 mb-6">Hasil estimasi glukosa Anda:</p>
+
+                            <div className="mb-8">
+                                <span className="text-5xl font-extrabold text-blue-600 tracking-tight">{resultData.glucose}</span>
+                                <span className="text-lg text-slate-400 font-medium ml-2">mg/dL</span>
+                            </div>
+
+                            <div className="flex flex-col gap-3">
+                                <Link
+                                    href="/dashboard"
+                                    className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-blue-700 transition-colors"
+                                >
+                                    Lihat Dashboard
+                                </Link>
+                                <button
+                                    onClick={() => { setResultData(null); startMeasurement(); }}
+                                    className="w-full bg-slate-100 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-200 transition-colors"
+                                >
+                                    Ukur Lagi
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
             </main>
         </div>
