@@ -12,6 +12,13 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Mobile Safe Areas */
+body {
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-top: env(safe-area-inset-top);
+  background-color: #000; /* Better for notches on dark themes app-wide */
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;

@@ -2,19 +2,23 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Activity, Calendar, Settings, ChevronRight, Plus, Brain } from 'lucide-react';
+import { useAuth } from '@/components/providers/AuthProvider';
+import { Activity, Calendar, ChevronRight, Plus, TrendingUp, TrendingDown, Heart, Target, CheckCircle2, Clock } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { getMeasurements } from '@/lib/firebase/firestore';
+import TopNav from '@/components/layout/TopNav';
 
 export default function DashboardPage() {
+    const { user } = useAuth();
     const [history, setHistory] = useState<any[]>([]);
     const [latest, setLatest] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const loadData = async () => {
+            if (!user) return;
             try {
-                const data = await getMeasurements();
+                const data = await getMeasurements(50, user.uid);
                 setHistory(data);
                 if (data.length > 0) {
                     setLatest(data[0]);
@@ -26,12 +30,12 @@ export default function DashboardPage() {
             }
         };
 
-        loadData();
-    }, []);
+        if (user) loadData();
+    }, [user]);
 
     const getStatusColor = (val: number) => {
         if (val < 70) return 'text-yellow-600';
-        if (val > 140) return 'text-orange-600';
+        if (val > 140) return 'text-red-600';
         return 'text-green-600';
     };
 
@@ -41,118 +45,238 @@ export default function DashboardPage() {
         return 'Normal';
     };
 
+    const getStatusBorder = (val: number) => {
+        if (val < 70) return 'border-yellow-200';
+        if (val > 140) return 'border-red-200';
+        return 'border-green-200';
+    };
+
+    // Calculate stats
+    const avgGlucose = history.length > 0
+        ? Math.round(history.reduce((sum, item) => sum + item.glucose, 0) / history.length)
+        : 0;
+
+    const trend = history.length >= 2
+        ? history[0].glucose - history[1].glucose
+        : 0;
+
+    const normalCount = history.filter(item => item.glucose >= 70 && item.glucose <= 140).length;
+    const normalPercentage = history.length > 0 ? Math.round((normalCount / history.length) * 100) : 0;
+
     return (
-        <div className="flex flex-col h-full bg-slate-50">
-            <header className="px-6 py-4 flex items-center justify-between bg-white border-b border-gray-100 sticky top-0 z-10">
-                <Link href="/" className="font-bold text-xl tracking-tight text-blue-900">
-                    GlucoVision
-                </Link>
-                <div className="flex gap-2">
-                    <Link href="/training" className="p-2 bg-blue-50 rounded-full text-blue-600 hover:bg-blue-100 transition flex items-center gap-2 px-3">
-                        <Brain className="w-4 h-4" />
-                        <span className="text-xs font-bold uppercase tracking-wider">Lab</span>
-                    </Link>
-                    <Link href="/calibration" className="p-2 bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200 transition">
-                        <Settings className="w-5 h-5" />
+        <div className="flex flex-col h-full bg-white">
+            <TopNav />
+
+            <main className="flex-1 overflow-y-auto p-4 pt-24 md:p-6 md:pt-24 lg:p-8 lg:pt-24 pb-32 max-w-6xl mx-auto w-full">
+
+                {/* Header */}
+                <div className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0">
+                    <div>
+                        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-1">Dashboard</h1>
+                        <p className="text-slate-500 text-sm md:text-base">Monitor kesehatan Anda</p>
+                    </div>
+                    <Link
+                        href="/measure"
+                        className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Ukur Sekarang
                     </Link>
                 </div>
-            </header>
 
-            <main className="flex-1 overflow-y-auto p-6 space-y-6">
-
-                {/* Latest Result Card */}
                 {latest ? (
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 animate-in slide-in-from-bottom-2 duration-500">
-                        <div className="flex justify-between items-start mb-4">
-                            <span className="text-sm font-medium text-slate-400 uppercase tracking-wider">Terakhir</span>
-                            <span className="text-xs text-slate-400">{new Date(latest.timestamp).toLocaleTimeString()}</span>
+                    <>
+                        {/* Latest Reading */}
+                        <div className={`mb-8 p-8 border-l-4 ${getStatusBorder(latest.glucose)} bg-slate-50`}>
+                            <div className="flex items-start justify-between mb-6">
+                                <div>
+                                    <p className="text-sm text-slate-500 mb-1">Pembacaan Terakhir</p>
+                                    <p className="text-xs text-slate-400 flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {new Date(latest.timestamp).toLocaleString('id-ID')}
+                                    </p>
+                                </div>
+                                <span className={`px-4 py-1 border ${getStatusColor(latest.glucose).replace('text-', 'border-')} ${getStatusColor(latest.glucose)} text-sm font-semibold`}>
+                                    {getStatusText(latest.glucose)}
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                                {/* Main Reading */}
+                                <div className="lg:col-span-1">
+                                    <div className="text-6xl font-bold text-slate-900 mb-2">
+                                        {latest.glucose}
+                                    </div>
+                                    <p className="text-slate-500 mb-3">mg/dL</p>
+                                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                                        {trend > 0 ? (
+                                            <><TrendingUp className="w-4 h-4 text-red-500" /> +{trend}</>
+                                        ) : trend < 0 ? (
+                                            <><TrendingDown className="w-4 h-4 text-green-500" /> {trend}</>
+                                        ) : (
+                                            <><Activity className="w-4 h-4" /> Stabil</>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Stats Grid */}
+                                <div className="lg:col-span-3 grid grid-cols-3 gap-6">
+                                    <div className="border-l-2 border-slate-200 pl-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Heart className="w-4 h-4 text-red-500" />
+                                            <span className="text-xs text-slate-500 uppercase">Denyut Jantung</span>
+                                        </div>
+                                        <div className="text-3xl font-bold text-slate-900">{latest.bpm}</div>
+                                        <span className="text-sm text-slate-500">BPM</span>
+                                    </div>
+
+                                    <div className="border-l-2 border-slate-200 pl-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Target className="w-4 h-4 text-blue-500" />
+                                            <span className="text-xs text-slate-500 uppercase">Rata-rata</span>
+                                        </div>
+                                        <div className="text-3xl font-bold text-slate-900">{avgGlucose}</div>
+                                        <span className="text-sm text-slate-500">mg/dL</span>
+                                    </div>
+
+                                    <div className="border-l-2 border-slate-200 pl-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                            <span className="text-xs text-slate-500 uppercase">Normal</span>
+                                        </div>
+                                        <div className="text-3xl font-bold text-slate-900">{normalPercentage}%</div>
+                                        <span className="text-sm text-slate-500">Range</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="flex flex-col items-center">
-                            <div className="text-6xl font-extrabold text-slate-800 tracking-tighter">
-                                {latest.glucose}
+                        {/* Chart & Insights */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                            {/* Chart */}
+                            <div className="lg:col-span-2">
+                                <h2 className="text-lg font-bold text-slate-900 mb-4">Tren 7 Hari</h2>
+                                {history.length > 1 ? (
+                                    <div className="h-64 border border-slate-200 p-4">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={[...history].reverse().slice(-7)}>
+                                                <XAxis
+                                                    dataKey="timestamp"
+                                                    tickFormatter={(timestamp) => new Date(timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                                                    stroke="#94a3b8"
+                                                    style={{ fontSize: '12px' }}
+                                                />
+                                                <YAxis
+                                                    domain={[60, 160]}
+                                                    stroke="#94a3b8"
+                                                    style={{ fontSize: '12px' }}
+                                                />
+                                                <Tooltip
+                                                    contentStyle={{
+                                                        border: '1px solid #e2e8f0',
+                                                        borderRadius: '4px',
+                                                        padding: '8px'
+                                                    }}
+                                                    labelFormatter={(timestamp) => new Date(timestamp).toLocaleString('id-ID')}
+                                                    formatter={(value: any) => [`${value} mg/dL`, 'Gula Darah']}
+                                                />
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="glucose"
+                                                    stroke="#f97316"
+                                                    strokeWidth={2}
+                                                    dot={{ fill: '#f97316', r: 4 }}
+                                                />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                ) : (
+                                    <div className="h-64 border border-slate-200 flex items-center justify-center">
+                                        <p className="text-slate-400">Butuh lebih banyak data</p>
+                                    </div>
+                                )}
                             </div>
-                            <span className="text-sm text-slate-400 font-medium mb-1">mg/dL</span>
-                            <span className={`px-3 py-1 rounded-full text-sm font-bold bg-opacity-10 ${getStatusColor(latest.glucose).replace('text-', 'bg-')} ${getStatusColor(latest.glucose)}`}>
-                                {getStatusText(latest.glucose)}
-                            </span>
+
+                            {/* Insights */}
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-900 mb-4">Insight</h2>
+                                <div className="space-y-4">
+                                    <div className="border-l-4 border-green-500 pl-4 py-2">
+                                        <h3 className="font-semibold text-slate-900 mb-1">Kadar Gula {getStatusText(latest.glucose)}</h3>
+                                        <p className="text-sm text-slate-600">
+                                            {latest.glucose >= 70 && latest.glucose <= 140
+                                                ? "Pertahankan pola hidup sehat Anda"
+                                                : latest.glucose < 70
+                                                    ? "Konsumsi makanan berkarbohidrat"
+                                                    : "Kurangi asupan gula"}
+                                        </p>
+                                    </div>
+
+                                    <div className="border-l-4 border-blue-500 pl-4 py-2">
+                                        <h3 className="font-semibold text-slate-900 mb-1">Denyut Jantung</h3>
+                                        <p className="text-sm text-slate-600">
+                                            {latest.bpm >= 60 && latest.bpm <= 100
+                                                ? "Denyut jantung normal"
+                                                : "Konsultasi jika sering abnormal"}
+                                        </p>
+                                    </div>
+
+                                    <Link href="/sugar-visualizer" className="block border border-slate-200 hover:border-orange-500 p-4 transition-colors">
+                                        <h3 className="font-semibold text-slate-900 mb-1">Cek Gula Makanan</h3>
+                                        <p className="text-sm text-slate-600">Scan produk dengan AI →</p>
+                                    </Link>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="mt-6 grid grid-cols-2 gap-4 border-t border-slate-50 pt-4">
-                            <div className="text-center">
-                                <span className="block text-xs text-slate-400 mb-1">Denyut Jantung</span>
-                                <span className="block text-xl font-bold text-slate-700">{latest.bpm} <span className="text-xs font-normal">BPM</span></span>
+                        {/* History */}
+                        <div>
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-lg font-bold text-slate-900">Riwayat</h2>
+                                <Link href="/history" className="text-sm text-orange-600 hover:text-orange-700 font-medium">
+                                    Lihat Semua →
+                                </Link>
                             </div>
-                            <div className="text-center">
-                                <span className="block text-xs text-slate-400 mb-1">Akurasi AI</span>
-                                <span className="block text-xl font-bold text-slate-700">{latest.confidence}%</span>
+                            <div className="space-y-2">
+                                {history.slice(0, 5).map((item: any) => (
+                                    <div key={item.id} className="flex items-center justify-between p-4 border border-slate-200 hover:border-slate-300 transition-colors">
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-1 h-12 ${getStatusColor(item.glucose).replace('text-', 'bg-')}`}></div>
+                                            <div>
+                                                <span className="font-semibold text-slate-900">{item.glucose} <span className="text-sm font-normal text-slate-500">mg/dL</span></span>
+                                                <p className="text-xs text-slate-400 flex items-center gap-1 mt-1">
+                                                    <Clock className="w-3 h-3" />
+                                                    {new Date(item.timestamp).toLocaleString('id-ID')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className={`px-3 py-1 border ${getStatusColor(item.glucose).replace('text-', 'border-')} ${getStatusColor(item.glucose)} text-xs font-semibold`}>
+                                                {getStatusText(item.glucose)}
+                                            </span>
+                                            <ChevronRight className="w-5 h-5 text-slate-300" />
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                    </div>
+                    </>
                 ) : (
-                    <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 text-center">
-                        <p className="text-slate-500 mb-4">Belum ada data pengukuran.</p>
-                        <Link href="/measure" className="inline-flex items-center gap-2 text-blue-600 font-bold">
+                    <div className="text-center py-20 border border-dashed border-slate-300">
+                        <Activity className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                        <h3 className="text-xl font-bold text-slate-700 mb-2">Belum Ada Data</h3>
+                        <p className="text-slate-500 mb-6">
+                            Mulai dengan melakukan pengukuran pertama
+                        </p>
+                        <Link href="/measure" className="inline-flex items-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-colors">
                             <Plus className="w-5 h-5" />
-                            Mulai Sekarang
+                            Mulai Ukur
                         </Link>
                     </div>
                 )}
-
-                {/* Trend Chart */}
-                {history.length > 1 && (
-                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 h-48 flex flex-col">
-                        <span className="block text-sm font-medium text-slate-400 mb-4 ml-2">Tren Gula Darah</span>
-                        <div className="flex-1 min-h-0 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={[...history].reverse()}>
-                                    <YAxis hide domain={['dataMin - 10', 'dataMax + 10']} />
-                                    <Tooltip
-                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                        labelFormatter={() => ''}
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="glucose"
-                                        stroke="#2563EB"
-                                        strokeWidth={3}
-                                        dot={{ fill: '#2563EB', r: 4 }}
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-                )}
-
-                {/* Action Button */}
-                <Link
-                    href="/measure"
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 transition-all"
-                >
-                    <Activity className="w-5 h-5" />
-                    <span>Ukur Baru</span>
-                </Link>
-
-                {/* History List */}
-                <div>
-                    <h3 className="text-sm font-bold text-slate-800 mb-3 px-1">Riwayat</h3>
-                    <div className="space-y-3">
-                        {history.slice(0, 5).map((item: any) => (
-                            <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-100 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-2 h-10 rounded-full ${getStatusColor(item.glucose).replace('text-', 'bg-')}`}></div>
-                                    <div>
-                                        <span className="block font-bold text-slate-700">{item.glucose} mg/dL</span>
-                                        <span className="text-xs text-slate-400">{new Date(item.timestamp).toLocaleDateString()} • {new Date(item.timestamp).toLocaleTimeString()}</span>
-                                    </div>
-                                </div>
-                                <ChevronRight className="w-5 h-5 text-slate-300" />
-                            </div>
-                        ))}
-                    </div>
-                </div>
 
             </main>
         </div>
     );
 }
+

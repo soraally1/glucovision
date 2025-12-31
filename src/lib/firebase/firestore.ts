@@ -1,16 +1,17 @@
 
 import { db } from "./config";
-import { collection, addDoc, getDocs, query, orderBy, limit, Timestamp } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, orderBy, limit, Timestamp, where } from "firebase/firestore";
 
 // Define the shape of our data
 export interface MeasurementData {
-    id?: string; // Optional because Firestore provides it
-    timestamp: number; // Unix timestamp for easy sorting/charting
+    id?: string;
+    timestamp: number;
     glucose: number;
     bpm: number;
     confidence: number;
-    rawPPG?: number[]; // ADDED: Raw signal data for AI Dataset
-    isSynced?: boolean; // For future offline sync usage
+    rawPPG?: number[];
+    isSynced?: boolean;
+    userId?: string; // Linked to Auth User
 }
 
 const COLLECTION_NAME = "measurements";
@@ -20,19 +21,9 @@ const COLLECTION_NAME = "measurements";
  */
 export const saveMeasurement = async (data: MeasurementData) => {
     try {
-        // We ensure we save it to a subcollection if we had auth, 
-        // but for now let's save to a root collection or a single user for staging?
-        // User requested "staging" so maybe just a flat list is easier for them to debug.
-        // However, standard practice is `users/{userId}/measurements`.
-        // Let's use a flat collection for simplicity in this Staging MVP unless Auth is ready.
-        // Checking config.ts, auth is exported.
-        // If no user is logged in, this might fail if rules require auth.
-        // But for Staging/Dev usually rules are open.
-        // Let's stick to the root collection 'measurements' for now.
-
         const docRef = await addDoc(collection(db, COLLECTION_NAME), {
             ...data,
-            createdAt: Timestamp.now() // Server timestamp for auditing
+            createdAt: Timestamp.now()
         });
         console.log("Document written with ID: ", docRef.id);
         return docRef.id;
@@ -44,14 +35,27 @@ export const saveMeasurement = async (data: MeasurementData) => {
 
 /**
  * Retrieves the latest measurements from Firestore.
+ * Optionally filters by userId if provided.
  */
-export const getMeasurements = async (limitCount: number = 50): Promise<MeasurementData[]> => {
+export const getMeasurements = async (limitCount: number = 50, userId?: string): Promise<MeasurementData[]> => {
     try {
-        const q = query(
-            collection(db, COLLECTION_NAME),
-            orderBy("timestamp", "desc"),
-            limit(limitCount)
-        );
+        let q;
+
+        if (userId) {
+            q = query(
+                collection(db, COLLECTION_NAME),
+                where("userId", "==", userId),
+                orderBy("timestamp", "desc"),
+                limit(limitCount)
+            );
+        } else {
+            // Fallback for global view or legacy data
+            q = query(
+                collection(db, COLLECTION_NAME),
+                orderBy("timestamp", "desc"),
+                limit(limitCount)
+            );
+        }
 
         const querySnapshot = await getDocs(q);
         const results: MeasurementData[] = [];
@@ -62,7 +66,8 @@ export const getMeasurements = async (limitCount: number = 50): Promise<Measurem
                 timestamp: data.timestamp,
                 glucose: data.glucose,
                 bpm: data.bpm,
-                confidence: data.confidence
+                confidence: data.confidence,
+                userId: data.userId
             } as MeasurementData);
         });
         return results;

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google"; // Keeping these for now, eventually check fonts
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import MobileWrapper from "@/components/ui/MobileWrapper";
+import { AuthProvider } from "@/components/providers/AuthProvider";
+import BottomNav from "@/components/layout/BottomNav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,7 +18,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "GlucoVision Web-AI",
   description: "Non-invasive glucose monitoring via smartphone camera",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0", // Critical for mobile app feel
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -29,9 +37,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}
       >
-        <MobileWrapper>
-          {children}
-        </MobileWrapper>
+        <AuthProvider>
+          <MobileWrapper>
+            {children}
+            <BottomNav />
+          </MobileWrapper>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- Helper Functions ---
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // --- Recipes Collection (New) ---
+    match /recipes/{recipeId} {
+      // Public read to allow sharing recipes via link
+      allow read: if true;
+      
+      // Create if authenticated
+      allow create: if isAuthenticated();
+      
+      // Update/Delete only if owner
+      allow update, delete: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid
+      );
+    }
+
+    // --- Lab Results Collection (New) ---
+    match /lab_results/{resultId} {
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // --- Users Collection (Existing) ---
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId);
+      allow delete: if false;
+    }
+    
+    // --- Measurements Collection (Existing) ---
+    match /measurements/{measurementId} {
+      // Start of new generic rule from user
+      allow read, write: if isAuthenticated() && 
+                           (resource == null || resource.data.userId == request.auth.uid);
+    }
+    
+    // --- AI Models Collection (Existing) ---
+    match /ai_models/{modelId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only via training page
+    }
+    
+    // --- System Config (Existing) ---
+    match /system_config/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    
+    // --- Default Deny (Existing) ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

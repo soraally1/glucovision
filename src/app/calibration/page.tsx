@@ -2,10 +2,20 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Save, Database, CheckCircle } from 'lucide-react';
+import { Save, Database, CheckCircle } from 'lucide-react';
+import TopNav from '@/components/layout/TopNav';
 import { DataCollector } from '@/lib/ml/dataCollection';
+import DevGuard from '@/components/guards/DevGuard';
 
 export default function CalibrationPage() {
+    return (
+        <DevGuard>
+            <CalibrationContent />
+        </DevGuard>
+    );
+}
+
+function CalibrationContent() {
     const [glucoseInput, setGlucoseInput] = useState('');
     const [isSaved, setIsSaved] = useState(false);
 
@@ -29,14 +39,9 @@ export default function CalibrationPage() {
 
     return (
         <div className="flex flex-col h-full bg-white">
-            <header className="px-6 py-4 flex items-center gap-4 border-b border-gray-100">
-                <Link href="/" className="p-2 -ml-2 hover:bg-slate-50 rounded-full">
-                    <ArrowLeft className="w-6 h-6 text-slate-700" />
-                </Link>
-                <span className="font-bold text-lg text-slate-800">Kalibrasi AI</span>
-            </header>
+            <TopNav />
 
-            <main className="flex-1 p-6 flex flex-col gap-6">
+            <main className="flex-1 p-6 flex flex-col gap-6 pt-20 pb-28">
                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-sm leading-relaxed">
                     <p className="font-semibold mb-2 flex items-center gap-2">
                         <Database className="w-4 h-4" />

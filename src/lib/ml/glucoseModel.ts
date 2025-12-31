@@ -50,7 +50,12 @@ export const createGlucoseModel = (): tf.LayersModel => {
     model.add(tf.layers.dropout({ rate: 0.2 }));
 
     // Output: Single scalar value (Glucose mg/dL)
-    model.add(tf.layers.dense({ units: 1, activation: 'linear' }));
+    // We initialize bias to 100 to give the model a sane starting point (avg glucose)
+    model.add(tf.layers.dense({
+        units: 1,
+        activation: 'linear',
+        biasInitializer: tf.initializers.constant({ value: 100 })
+    }));
 
     // Compile
     model.compile({

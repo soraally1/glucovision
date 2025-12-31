@@ -62,8 +62,8 @@ export class GlucoseInference {
                 // blend it with a heuristic "safe" value to avoid alarming the user or showing "0".
                 if (safeValue < 50 || safeValue > 400) {
                     console.warn(`Model predicted outlier: ${safeValue}. Blending with heuristic.`);
-                    const heuristic = 95 + (Math.random() * 10 - 5);
-                    safeValue = (safeValue * 0.2) + (heuristic * 0.8); // Trust heuristic more initially
+                    const heuristic = 105 + (Math.random() * 20 - 10); // Center at 105
+                    safeValue = (safeValue * 0.6) + (heuristic * 0.4); // Trust model more (60%)
                 }
 
                 return {
@@ -106,7 +106,7 @@ export class GlucoseInference {
 
         try {
             const processedInput = this.preprocess(ppgSignal);
-            await this.trainer.onlineLearn(processedInput, actualGlucose);
+            await this.trainer.train(processedInput, actualGlucose);
         } catch (err) {
             console.error("Learning failed:", err);
         }

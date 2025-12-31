@@ -6,13 +6,15 @@ interface CameraControllerProps {
     onFrame?: (canvas: HTMLCanvasElement) => void;
     width?: number;
     height?: number;
+    facingMode?: 'user' | 'environment';
 }
 
 const CameraController: React.FC<CameraControllerProps> = ({
     onStreamReady,
     onFrame,
     width = 300,
-    height = 300
+    height = 300,
+    facingMode = 'environment'
 }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -41,7 +43,7 @@ const CameraController: React.FC<CameraControllerProps> = ({
                     const constraints = {
                         audio: false,
                         video: {
-                            facingMode: 'environment', // Rear camera
+                            facingMode: facingMode,
                             width: { ideal: 1280 },
                             height: { ideal: 720 },
                             frameRate: { ideal: 30 }
@@ -92,7 +94,7 @@ const CameraController: React.FC<CameraControllerProps> = ({
                 streamRef.current.getTracks().forEach(track => track.stop());
             }
         };
-    }, [onStreamReady]);
+    }, [onStreamReady, facingMode]);
 
     // Handle flash toggle using applyConstraints
     const toggleFlash = async () => {
