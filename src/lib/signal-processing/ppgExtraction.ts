@@ -1,14 +1,16 @@
 import { SignalNormalizer } from '../video-processing/normalization';
+import { BandpassFilter } from './bandpassFilter';
 
 /**
  * Orchestrates the extraction of a clean PPG signal from raw intensity values.
  */
 export class PPGExtractor {
     private normalizer: SignalNormalizer;
-    private filterBuffer: number[] = [];
+    private bandpass: BandpassFilter;
 
     constructor() {
         this.normalizer = new SignalNormalizer(150); // 5 sec baseline
+        this.bandpass = new BandpassFilter(30, 0.7, 3.5);
     }
 
     process(rawRedIntensity: number): number {
@@ -16,22 +18,14 @@ export class PPGExtractor {
         const normalized = this.normalizer.process(rawRedIntensity);
 
         // 2. Invert (Blood absorption increases -> Light intensity decreases)
-        // So pulse peak (more blood) = lower intensity.
-        // We invert so peaks look like peaks.
         const inverted = -normalized;
 
-        // 3. Simple Bandpass/Smoothing (Moving Average for now, will enhance later)
-        return this.smooth(inverted);
-    }
-
-    private smooth(val: number): number {
-        this.filterBuffer.push(val);
-        if (this.filterBuffer.length > 5) this.filterBuffer.shift();
-        return this.filterBuffer.reduce((a, b) => a + b, 0) / this.filterBuffer.length;
+        // 3. Bandpass filtering (0.7Hz - 3.5Hz)
+        return this.bandpass.process(inverted);
     }
 
     reset() {
         this.normalizer.reset();
-        this.filterBuffer = [];
+        this.bandpass.reset();
     }
 }

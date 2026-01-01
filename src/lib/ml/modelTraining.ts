@@ -1,4 +1,6 @@
 import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-backend-cpu';
+import '@tensorflow/tfjs-backend-webgl';
 import { createGlucoseModel } from './glucoseModel';
 import { db } from '../firebase/config';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
@@ -76,14 +78,46 @@ export class ModelTrainer {
         this.initPromise = (async () => {
             console.log('[ModelTrainer] Initializing model...');
             try {
-                await this.loadFromFirestore();
-                console.log('[ModelTrainer] Loaded from Firestore successfully');
+                // Try IndexedDB first
+                console.log('[ModelTrainer] Trying to load from IndexedDB...');
+                this.model = await tf.loadLayersModel(`indexeddb://${MODEL_DOC_ID}`);
+
+                // CRITICAL: Re-compile model to enable training
+                this.model.compile({
+                    optimizer: tf.train.adam(0.001),
+                    loss: 'meanSquaredError',
+                    metrics: ['mse']
+                });
+
+                console.log('[ModelTrainer] Loaded from IndexedDB successfully');
             } catch (e) {
-                console.warn('[ModelTrainer] Firestore load failed, creating new local model.');
-                // Create fresh model only if loading failed
-                this.model = createGlucoseModel();
-                await warmupModel(this.model);
-                console.log('[ModelTrainer] Created fresh cold-start model', MODEL_VERSION);
+                console.log('[ModelTrainer] IndexedDB load failed, trying Firestore...');
+                try {
+                    await this.loadFromFirestore();
+                    console.log('[ModelTrainer] Loaded from Firestore successfully');
+
+                    // Save to IndexedDB for next time
+                    if (this.model) {
+                        try {
+                            await this.model.save(`indexeddb://${MODEL_DOC_ID}`);
+                            console.log('[ModelTrainer] Saved to IndexedDB for caching');
+                        } catch (saveErr) {
+                            console.warn('[ModelTrainer] IndexedDB save failed:', saveErr);
+                        }
+                    }
+                } catch (firestoreErr) {
+                    console.warn('[ModelTrainer] Firestore load failed, creating new local model.');
+                    this.model = createGlucoseModel();
+                    await warmupModel(this.model);
+                    console.log('[ModelTrainer] Created fresh cold-start model', MODEL_VERSION);
+
+                    // Save new model to IndexedDB
+                    try {
+                        await this.model.save(`indexeddb://${MODEL_DOC_ID}`);
+                    } catch (saveErr) {
+                        console.warn('[ModelTrainer] IndexedDB save failed for fresh model');
+                    }
+                }
             }
         })();
 
@@ -238,9 +272,13 @@ export class ModelTrainer {
             x.dispose();
             y.dispose();
 
-            // Auto-sync to cloud (Best effort)
+            // Auto-sync to cloud and local cache
             try {
                 await this.saveAndSync();
+                // Also update local cache
+                if (this.model) {
+                    await this.model.save(`indexeddb://${MODEL_DOC_ID}`);
+                }
             } catch (e: any) {
                 // Ignore permission errors - typical for end users
                 if (e.code === 'permission-denied') {

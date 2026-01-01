@@ -32,17 +32,27 @@ export default function MeasurePage() {
     const frameCounter = useRef(0); // For performance throttling
 
     useEffect(() => {
-        // Initialize instances ONLY ONCE on mount
-        glucoseInference.current = new GlucoseInference();
-        hrDetector.current = new HeartRateDetector();
-        ppgExtractor.current = new PPGExtractor();
+        // Parallel init for better performance
+        const initializeAll = async () => {
+            console.log("[MeasurePage] Starting parallel initialization...");
 
-        getHeartRateConfig().then(config => {
-            console.log("Applied Heart Rate Config:", config);
-            if (hrDetector.current) {
-                hrDetector.current.updateConfig(config);
-            }
-        });
+            // 1. Init ML/Signal instances
+            glucoseInference.current = new GlucoseInference();
+            hrDetector.current = new HeartRateDetector();
+            ppgExtractor.current = new PPGExtractor();
+
+            // 2. Parallel tasks
+            await Promise.all([
+                glucoseInference.current.predict({ ppgSignal: [], heartRate: 75 }).catch(() => { }), // Warmup
+                getHeartRateConfig().then(config => {
+                    if (hrDetector.current) hrDetector.current.updateConfig(config);
+                })
+            ]);
+
+            console.log("[MeasurePage] Initialization complete");
+        };
+
+        initializeAll();
     }, []);
 
     const MAX_CHART_POINTS = 50;
@@ -55,14 +65,13 @@ export default function MeasurePage() {
 
         frameCounter.current += 1;
 
-        // 1. Extract & Finger Detection (Always run logic)
+        // 1. Extract & Finger Detection
         const rgb = extractRedChannelAverage(canvas);
         const isFingerDetected = rgb.r > 20 && rgb.r > rgb.g * 1.1 && rgb.r > rgb.b * 1.1;
 
         if (!isFingerDetected) {
-            // Update status immediately but maybe don't re-render chart
-            if (statusMessage !== "Letakkan jari menutupi kamera & flash") {
-                setStatusMessage("Letakkan jari menutupi kamera & flash");
+            if (statusMessage !== "Jari tidak terdeteksi") {
+                setStatusMessage("Jari tidak terdeteksi");
             }
             return;
         }
@@ -70,24 +79,33 @@ export default function MeasurePage() {
         // 2. PPG Processing
         const ppgValue = ppgExtractor.current.process(rgb.r);
 
-        // 3. Buffer for HR & ML (Always push)
+        // 3. Buffer for HR & ML
         signalBuffer.current.push(ppgValue);
 
-        // 4. Analysis (Internal Logic - Keep logic fast)
+        // 4. Analysis
+        let currentBpm = bpm;
+        let isStable = false;
+
         if (signalBuffer.current.length % 30 === 0 && signalBuffer.current.length > 60) {
             const hrResult = hrDetector.current.process(signalBuffer.current);
             if (hrResult.confidence > 50) {
-                setBpm(Math.round(hrResult.bpm));
+                currentBpm = Math.round(hrResult.bpm);
+                setBpm(currentBpm);
+                isStable = hrResult.confidence > 75;
             }
         }
 
         const progress = Math.min((signalBuffer.current.length / TOTAL_FRAMES) * 100, 100);
 
         // === THROTTLED UI UPDATES ===
-        // Only update React state every 4 frames (~7-8 FPS) to prevent lag
         if (frameCounter.current % 4 === 0 || progress >= 100) {
             setSignalValue(ppgValue);
-            setStatusMessage("Mengukur... Jangan gerak");
+
+            // Dynamic status based on quality
+            const qualityMsg = progress < 30 ? "Menstabilkan sinyal..." :
+                (isStable ? "Sinyal stabil, teruskan" : "Mengukur... jangan bergerak");
+
+            setStatusMessage(qualityMsg);
             setMeasurementProgress(progress);
 
             setChartData(prev => {

@@ -88,11 +88,22 @@ export class GlucoseInference {
     }
 
     private preprocess(signal: number[]): number[] {
-        // Ensure strictly 300 samples
+        // 1. Ensure strictly 300 samples
         let processed = [...signal];
         if (processed.length > 300) processed = processed.slice(0, 300);
         while (processed.length < 300) processed.push(0);
-        return processed;
+
+        // 2. Z-score Normalization (Signal - Mean) / StdDev
+        // This makes the model insensitive to absolute brightness/skin tone
+        const mean = processed.reduce((a, b) => a + b, 0) / processed.length;
+        const variance = processed.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / processed.length;
+        const std = Math.sqrt(variance) || 1;
+
+        return processed.map(v => {
+            const z = (v - mean) / std;
+            // Clamp to [-3, 3] to remove motion artifacts/outliers
+            return Math.max(-3, Math.min(3, z));
+        });
     }
 
     private getSimulationFallback(): InferenceResult {
