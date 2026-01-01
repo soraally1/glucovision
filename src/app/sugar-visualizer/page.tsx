@@ -103,18 +103,11 @@ export default function SugarVisualizerPage() {
 
                     {/* Viewfinder Overlay */}
                     <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
-                        <div className="w-72 h-72 border-[1px] border-white/30 rounded-3xl relative backdrop-blur-[2px]">
-                            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-orange-500 rounded-tl-2xl -mt-1 -ml-1 shadow-[0_0_10px_rgba(255,162,64,0.5)]"></div>
-                            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-orange-500 rounded-tr-2xl -mt-1 -mr-1 shadow-[0_0_10px_rgba(255,162,64,0.5)]"></div>
-                            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-orange-500 rounded-bl-2xl -mb-1 -ml-1 shadow-[0_0_10px_rgba(255,162,64,0.5)]"></div>
-                            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-orange-500 rounded-br-2xl -mb-1 -mr-1 shadow-[0_0_10px_rgba(255,162,64,0.5)]"></div>
-
-                            {/* Scanning Line Animation */}
-                            <div className="absolute inset-x-0 h-[2px] bg-orange-400/80 shadow-[0_0_15px_rgba(255,162,64,0.8)] animate-scan top-1/2"></div>
+                        <div className="relative">
+                            <p className="mt-8 text-white/90 font-medium px-6 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
+                                Arahkan kamera ke informasi nutrisi
+                            </p>
                         </div>
-                        <p className="mt-8 text-white/90 font-medium px-6 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
-                            Arahkan kamera ke minuman
-                        </p>
                     </div>
 
                     {/* Capture Button */}

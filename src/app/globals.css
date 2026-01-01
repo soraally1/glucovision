@@ -8,7 +8,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-jakarta);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -16,7 +16,8 @@
 body {
   padding-bottom: env(safe-area-inset-bottom);
   padding-top: env(safe-area-inset-top);
-  background-color: #000; /* Better for notches on dark themes app-wide */
+  background-color: #000;
+  /* Better for notches on dark themes app-wide */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -30,4 +31,52 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Custom Animations */
+@keyframes loop-left {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes loop-right {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.animate-loop-left {
+  animation: loop-left linear infinite;
+}
+
+.animate-loop-right {
+  animation: loop-right linear infinite;
+}
+
+.group:hover .pause {
+  animation-play-state: paused;
+}
+
+.mask-gradient-x {
+  mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+}
+
+.reveal-hidden {
+  opacity: 0;
+  transform: translateY(2rem);
+}
+
+.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
 }

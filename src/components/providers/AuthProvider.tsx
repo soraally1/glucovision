@@ -79,9 +79,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return (
         <AuthContext.Provider value={{ user, userProfile, loading, logout, signInWithGoogle }}>
             {!loading ? children : (
-                <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black">
-                    <div className="w-12 h-12 border-4 border-orange-600/30 border-t-orange-500 rounded-full animate-spin mb-4"></div>
-                    <p className="text-orange-500 font-medium text-sm animate-pulse">Memuat GlucoVision...</p>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white">
+                    <video
+                        src="/LucoLoading.webm"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="w-32 h-32 object-contain"
+                    />
                 </div>
             )}
         </AuthContext.Provider>

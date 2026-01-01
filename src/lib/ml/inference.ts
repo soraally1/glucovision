@@ -36,8 +36,14 @@ export class GlucoseInference {
     }
 
     private async init() {
-        await this.trainer.initialize();
-        this.modelLoaded = true;
+        if (this.modelLoaded) return;
+        try {
+            await this.trainer.initialize();
+            this.modelLoaded = true;
+        } catch (error) {
+            console.error("Model initialization error:", error);
+            // Don't set modelLoaded to true, fallback will be used
+        }
     }
 
     async predict(input: InferenceInput): Promise<InferenceResult> {

@@ -47,8 +47,7 @@ service cloud.firestore {
     
     // --- AI Models Collection (Existing) ---
     match /ai_models/{modelId} {
-      allow read: if isAuthenticated();
-      allow write: if false; // Only via training page
+      allow read, write: if isAuthenticated();
     }
     
     // --- System Config (Existing) ---

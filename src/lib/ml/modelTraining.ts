@@ -4,7 +4,7 @@ import { db } from '../firebase/config';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 
 // Model Metadata
-const MODEL_VERSION = 'v2';
+const MODEL_VERSION = 'v3';
 const MODEL_DOC_ID = `global_glucose_model_${MODEL_VERSION}`;
 const MODELS_COLLECTION = 'ai_models';
 
@@ -66,24 +66,28 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
 
 export class ModelTrainer {
     model: tf.LayersModel | null = null;
+    private isInitializing = false;
+    private initPromise: Promise<void> | null = null;
 
     async initialize() {
         if (this.model) return;
+        if (this.initPromise) return this.initPromise;
 
-        console.log('[ModelTrainer] Initializing model...');
+        this.initPromise = (async () => {
+            console.log('[ModelTrainer] Initializing model...');
+            try {
+                await this.loadFromFirestore();
+                console.log('[ModelTrainer] Loaded from Firestore successfully');
+            } catch (e) {
+                console.warn('[ModelTrainer] Firestore load failed, creating new local model.');
+                // Create fresh model only if loading failed
+                this.model = createGlucoseModel();
+                await warmupModel(this.model);
+                console.log('[ModelTrainer] Created fresh cold-start model', MODEL_VERSION);
+            }
+        })();
 
-        try {
-            await this.loadFromFirestore();
-            console.log('[ModelTrainer] Loaded from Firestore successfully');
-            return;
-        } catch (e) {
-            console.warn('[ModelTrainer] Firestore load failed, creating new:', e);
-        }
-
-        // Create fresh model
-        this.model = createGlucoseModel();
-        await warmupModel(this.model);
-        console.log('[ModelTrainer] Created fresh model', MODEL_VERSION);
+        return this.initPromise;
     }
 
     async loadFromFirestore() {
@@ -117,6 +121,13 @@ export class ModelTrainer {
                 convertedBy: null,
                 userDefinedMetadata: {}
             })
+        });
+
+        // CRITICAL: Re-compile model to enable training (fit)
+        this.model.compile({
+            optimizer: tf.train.adam(0.001),
+            loss: 'meanSquaredError',
+            metrics: ['mse']
         });
 
         console.log('[ModelTrainer] Model loaded from Firestore');
@@ -162,17 +173,24 @@ export class ModelTrainer {
             const weightDataBase64 = arrayBufferToBase64(weightBuffer);
 
             // Save to Firestore
-            const modelRef = doc(db, MODELS_COLLECTION, MODEL_DOC_ID);
-            await setDoc(modelRef, {
-                version: MODEL_VERSION,
-                modelTopology,
-                weightSpecs,
-                weightDataBase64,
-                updatedAt: Timestamp.now(),
-                sizeBytes: weightBuffer.byteLength
-            });
-
-            console.log(`[ModelTrainer] Model saved to Firestore (${(weightBuffer.byteLength / 1024).toFixed(2)} KB)`);
+            try {
+                const modelRef = doc(db, MODELS_COLLECTION, MODEL_DOC_ID);
+                await setDoc(modelRef, {
+                    version: MODEL_VERSION,
+                    modelTopology,
+                    weightSpecs,
+                    weightDataBase64,
+                    updatedAt: Timestamp.now(),
+                    sizeBytes: weightBuffer.byteLength
+                });
+                console.log(`[ModelTrainer] Model saved to Firestore (${(weightBuffer.byteLength / 1024).toFixed(2)} KB)`);
+            } catch (e: any) {
+                if (e.code === 'permission-denied') {
+                    throw e; // Re-throw to caller for "Local only" handling
+                }
+                console.warn("[ModelTrainer] Save skipped:", e.message);
+                // Don't throw for other errors to keep app running
+            }
 
             return {
                 modelArtifactsInfo: {
@@ -188,31 +206,54 @@ export class ModelTrainer {
         return saveResult;
     }
 
+    private isTraining = false;
+
     async train(ppgSignal: number[], glucoseLabel: number) {
         if (!this.model) {
-            throw new Error('Model not initialized');
+            // If model missing, try init or skip
+            console.warn('[ModelTrainer] Model not ready for training');
+            return;
         }
 
-        // Reshape to 3D for Conv1D: [1, sequenceLength, 1]
-        const x = tf.tensor3d([ppgSignal.map(v => [v])], [1, ppgSignal.length, 1]);
-        const y = tf.tensor2d([[glucoseLabel]], [1, 1]);
+        if (this.isTraining) {
+            console.warn('[ModelTrainer] Training already in progress, skipping frame.');
+            return;
+        }
 
-        // Train
-        await this.model.fit(x, y, {
-            epochs: 3,
-            batchSize: 1,
-            verbose: 0
-        });
+        this.isTraining = true;
 
-        // Cleanup
-        x.dispose();
-        y.dispose();
-
-        // Auto-sync to cloud
         try {
-            await this.saveAndSync();
-        } catch (e) {
-            console.error('[ModelTrainer] Failed to sync to Firestore:', e);
+            // Reshape to 3D for Conv1D: [1, sequenceLength, 1]
+            const x = tf.tensor3d([ppgSignal.map(v => [v])], [1, ppgSignal.length, 1]);
+            const y = tf.tensor2d([[glucoseLabel]], [1, 1]);
+
+            // Train
+            await this.model.fit(x, y, {
+                epochs: 1, // Reduce to 1 for real-time speed
+                batchSize: 1,
+                verbose: 0
+            });
+
+            // Cleanup
+            x.dispose();
+            y.dispose();
+
+            // Auto-sync to cloud (Best effort)
+            try {
+                await this.saveAndSync();
+            } catch (e: any) {
+                // Ignore permission errors - typical for end users
+                if (e.code === 'permission-denied') {
+                    console.log('[ModelTrainer] Local training only (No cloud write permission).');
+                } else {
+                    console.warn('[ModelTrainer] Cloud sync failed:', e);
+                }
+            }
+
+        } catch (err) {
+            console.error("Training loop error:", err);
+        } finally {
+            this.isTraining = false;
         }
     }
 

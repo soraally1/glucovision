@@ -146,10 +146,23 @@ export class AIClient {
         console.log(`[AI Client] Saving lab analysis for user ${userId}`);
 
         try {
+            // Firestore limit is 1MB (1,048,576 bytes).
+            // Base64 is ~1.33x the size of binary.
+            // Safety margin: keep total doc under 900KB.
+            // Calculate approximate size: analysis length + image length.
+
+            let imageToSave = imageBase64;
+            const estimatedSize = analysis.length + imageBase64.length;
+
+            if (estimatedSize > 900000) {
+                console.warn('[AI Client] Image too large for Firestore, saving without image.');
+                imageToSave = ''; // Or a placeholder string
+            }
+
             const docRef = await addDoc(collection(db, 'lab_results'), {
                 userId,
                 analysis,
-                imageBase64, // Be careful with size, but for MVP it's okay (Firestore limit 1MB)
+                imageBase64: imageToSave,
                 createdAt: serverTimestamp(),
                 title: 'Hasil Lab ' + new Date().toLocaleDateString('id-ID')
             });
@@ -157,7 +170,7 @@ export class AIClient {
             return docRef.id;
         } catch (e) {
             console.error('[AI Client] Failed to save lab analysis:', e);
-            throw new Error('Failed to save lab analysis');
+            throw e; // Re-throw to let the UI handle the alert
         }
     }
 

@@ -15,10 +15,10 @@ export class HeartRateDetector {
     constructor(config?: HeartRateConfig) {
         // Default Config (fallback) matches dataset insights
         this.config = config ? { ...config.detection, ...config.validation } : {
-            min_bpm: 45,
-            max_bpm: 185,
-            smoothing_window: 3,
-            refractory_period_frames: 10,
+            min_bpm: 40,
+            max_bpm: 200, // Increased for infants
+            smoothing_window: 1, // Reduced filtering to preserve higher freq (infant HR)
+            refractory_period_frames: 7, // ~233ms (allows up to ~250 BPM)
             skewness_min: -1.5,
             skewness_max: 1.5,
             kurtosis_max: 5.0,
@@ -76,19 +76,21 @@ export class HeartRateDetector {
         // Dynamic threshold based on signal amplitude usually works best
         // Use RMS or StdDev of the window to determine what constitutes a "significant" peak
         const rms = Math.sqrt(smoothed.reduce((a, b) => a + (b * b), 0) / smoothed.length);
-        const threshold = rms * 0.6; // Peak must be at least 60% of signal strength
+        const threshold = rms * 0.45; // Lowered to 45% of signal strength to catch weaker pulses on mobile cameras
 
         for (let i = 2; i < smoothed.length - 2; i++) {
             const current = smoothed[i];
 
-            // Peak must be positive (above 0 after detrending) AND strict local max
+            // 3-point peak check is sufficient with good smoothing and refractory period
+            // Relaxing from 5-point to improve sensitivity
             if (current > threshold &&
                 current > smoothed[i - 1] &&
-                current > smoothed[i - 2] &&
-                current > smoothed[i + 1] &&
-                current > smoothed[i + 2]) {
+                current > smoothed[i + 1]) {
 
                 if (i - lastPeakIndex > minPeakDistance) {
+                    // Check for local max in wider context to prevent noise triggers
+                    // But don't enforce strictly if it's the "highest so far" in this refractory block?
+                    // actually, let's keep it simple.
                     peaks.push(i);
                     lastPeakIndex = i;
                 }
@@ -105,8 +107,14 @@ export class HeartRateDetector {
             intervals.push(peaks[i] - peaks[i - 1]);
         }
 
-        // Filter outliers (median filter often better, but let's stick to mean with stdDev reject)
-        const avgIntervalSamples = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+        // Filter outliers using MEDIAN (More robust to missed peaks than Mean)
+        const sortedIntervals = [...intervals].sort((a, b) => a - b);
+        const mid = Math.floor(sortedIntervals.length / 2);
+        const medianIntervalSamples = sortedIntervals.length % 2 !== 0
+            ? sortedIntervals[mid]
+            : (sortedIntervals[mid - 1] + sortedIntervals[mid]) / 2;
+
+        const avgIntervalSamples = medianIntervalSamples; // Use median as the representative
         const avgIntervalSec = avgIntervalSamples / fs;
 
         if (avgIntervalSec === 0) return { bpm: 0, confidence: 0 };

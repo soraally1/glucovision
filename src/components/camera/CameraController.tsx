@@ -164,7 +164,7 @@ const CameraController: React.FC<CameraControllerProps> = ({
     }, [onFrame, width, height, isMockMode]);
 
     return (
-        <div className="relative w-full aspect-square bg-black rounded-2xl overflow-hidden shadow-inner border-2 border-slate-800">
+        <div className="relative w-full h-full bg-black overflow-hidden">
             {/* Real Mode: Video Feed */}
             {!isMockMode && (
                 <video

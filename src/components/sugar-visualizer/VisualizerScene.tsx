@@ -1,31 +1,66 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { useMemo, useRef } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows, Float } from '@react-three/drei';
 import * as THREE from 'three';
+import { Mesh } from 'three';
 
 interface VisualizerSceneProps {
     sugarGrams: number;
 }
 
 function SugarCube({ position, delay }: { position: [number, number, number], delay: number }) {
-    // Small random rotation for realism
-    const rotation = useMemo(() => [
-        (Math.random() - 0.5) * 0.2,
-        (Math.random() - 0.5) * 0.2,
-        (Math.random() - 0.5) * 0.2,
-    ] as [number, number, number], []);
+    const meshRef = useRef<Mesh>(null);
+    const startY = 15; // Start high up
+    const targetY = position[1];
+
+    // Independent time tracking for each cube
+    const timeRef = useRef(0);
+
+    useFrame((state, delta) => {
+        if (!meshRef.current) return;
+
+        // Wait for delay
+        if (state.clock.elapsedTime < delay) {
+            meshRef.current.position.y = startY + 100; // Hide way above
+            return;
+        }
+
+        timeRef.current += delta;
+
+        // Simple physics simulation for falling
+        const speed = 10;
+        const currentY = meshRef.current.position.y;
+
+        if (currentY > targetY) {
+            // Fall down
+            meshRef.current.position.y = Math.max(targetY, startY - (speed * timeRef.current * timeRef.current));
+
+            // Spin while falling
+            meshRef.current.rotation.x += delta * 2;
+            meshRef.current.rotation.z += delta * 2;
+        } else {
+            // Landed - settle rotation
+            meshRef.current.position.y = targetY;
+            // Dampen rotation to final state (could act as a little bounce/settle if we wanted more complex physics)
+            meshRef.current.rotation.x = position[0] * 0.1; // Minimal random rotation based on position
+            meshRef.current.rotation.z = position[2] * 0.1;
+        }
+    });
 
     return (
-        <mesh position={position} rotation={rotation} castShadow receiveShadow>
-            <boxGeometry args={[1, 1, 1]} />{/* 1 unit = 1 cube */}
-            <meshStandardMaterial
+        <mesh ref={meshRef} position={[position[0], startY, position[2]]} castShadow receiveShadow>
+            <boxGeometry args={[0.95, 0.95, 0.95]} /> {/* Slightly smaller for gap */}
+            <meshPhysicalMaterial
                 color="#ffffff"
-                roughness={0.6}
+                roughness={0.4}
                 metalness={0.1}
+                clearcoat={0.3}
+                clearcoatRoughness={0.25}
+                transmission={0.1} // Slight translucency like real sugar
+                thickness={1}
             />
-            {/* Sub-mesh for slight detailing or grain could go here, but omitted for simple style */}
         </mesh>
     );
 }
@@ -33,35 +68,24 @@ function SugarCube({ position, delay }: { position: [number, number, number], de
 function CubeStack({ count }: { count: number }) {
     const cubes = useMemo(() => {
         const items: { position: [number, number, number], id: number }[] = [];
-        // Stack logic: Simple pyramid-ish pile or just a grid?
-        // Let's do a compact grid to ensure it fits in view.
-        // Base size depends on total count to keep it stable.
-        const baseSize = Math.ceil(Math.pow(count, 1 / 3) * 1.5); // Heuristic for base
+        const baseSize = Math.ceil(Math.pow(count, 1 / 3) * 1.5);
 
-        let stored = 0;
-        let y = 0.5; // Start half-height up (box is height 1, origin center)
-
-        // Simple stacking: fill layers 
-        // 4 cubes per layer example, or varying.
-        // Let's do a fixed width grid, e.g., 3x3 max base for typical soda cans
-
-        const width = 3;
-        const depth = 3;
+        const width = 4; // Wider stack
+        const depth = 4;
 
         for (let i = 0; i < count; i++) {
-            // Grid layout
             const layerIndex = Math.floor(i / (width * depth));
             const indexInLayer = i % (width * depth);
             const x = (indexInLayer % width) - (width - 1) / 2;
             const z = (Math.floor(indexInLayer / width)) - (depth - 1) / 2;
 
-            // Add random noise to position
-            const jitterX = (Math.random() - 0.5) * 0.1;
-            const jitterZ = (Math.random() - 0.5) * 0.1;
+            // Random jitter for natural look
+            const jitterX = (Math.random() - 0.5) * 0.2;
+            const jitterZ = (Math.random() - 0.5) * 0.2;
 
             items.push({
                 id: i,
-                position: [x + jitterX, 0.5 + layerIndex * 1.01, z + jitterZ]
+                position: [x + jitterX, 0.5 + layerIndex * 1.0, z + jitterZ]
             });
         }
         return items;
@@ -70,7 +94,7 @@ function CubeStack({ count }: { count: number }) {
     return (
         <group>
             {cubes.map((cube, i) => (
-                <SugarCube key={cube.id} position={cube.position} delay={i * 0.05} />
+                <SugarCube key={cube.id} position={cube.position} delay={i * 0.08} />
             ))}
         </group>
     );

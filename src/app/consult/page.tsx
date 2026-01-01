@@ -7,7 +7,7 @@ import { auth } from '@/lib/firebase/config';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import TopNav from '@/components/layout/TopNav';
 import BottomNav from '@/components/layout/BottomNav';
-import { ChefHat, FileText, Upload, Sparkles, ArrowRight, Loader2, Camera, X, AlertCircle, Bookmark } from 'lucide-react';
+import { ChefHat, FileText, Upload, Sparkles, ArrowRight, Loader2, Camera, X, AlertCircle, Bookmark, ChevronLeft, ChevronRight } from 'lucide-react';
 import { aiService, Question } from '@/lib/ai/aiClient';
 
 export default function ConsultPage() {
@@ -35,7 +35,7 @@ export default function ConsultPage() {
     const [savedTabFilter, setSavedTabFilter] = useState<'recipe' | 'lab'>('recipe');
 
     useEffect(() => {
-        if (activeTab === 'saved' && user) {
+        if ((activeTab === 'saved' || activeTab === 'lab') && user) {
             loadSavedItems();
         }
     }, [activeTab, user]);
@@ -58,13 +58,22 @@ export default function ConsultPage() {
     };
 
     const handleSaveLab = async () => {
-        if (!labAnalysis || !selectedImage || !user) return;
+        if (!user) {
+            alert('Silakan login terlebih dahulu untuk menyimpan.');
+            return;
+        }
+        if (!labAnalysis) {
+            alert('Belum ada hasil analisa untuk disimpan.');
+            return;
+        }
+        // Image is optional for saving, but we prefer it
+
         try {
-            await aiService.saveLabAnalysis(labAnalysis, selectedImage, user.uid);
+            await aiService.saveLabAnalysis(labAnalysis, selectedImage || '', user.uid);
             alert('Hasil lab berhasil disimpan!');
-        } catch (e) {
-            console.error(e);
-            alert('Gagal menyimpan hasil lab.');
+        } catch (e: any) {
+            console.error('Save failed:', e);
+            alert('Gagal menyimpan hasil lab: ' + (e.message || 'Error tidak diketahui'));
         }
     };
 
@@ -171,6 +180,36 @@ export default function ConsultPage() {
         setAnswers({});
     };
 
+
+    // --- Pagination Logic ---
+    const PAGE_CHAR_LIMIT = 500;
+    const [currentPage, setCurrentPage] = useState(0);
+
+    const pages = React.useMemo(() => {
+        if (!labAnalysis) return [];
+        const paragraphs = labAnalysis.split('\n\n');
+        const newPages: string[] = [];
+        let currentPageContent = '';
+
+        for (const p of paragraphs) {
+            if ((currentPageContent + p).length > PAGE_CHAR_LIMIT && currentPageContent) {
+                newPages.push(currentPageContent);
+                currentPageContent = p;
+            } else {
+                currentPageContent = currentPageContent ? currentPageContent + '\n\n' + p : p;
+            }
+        }
+        if (currentPageContent) {
+            newPages.push(currentPageContent);
+        }
+        return newPages;
+    }, [labAnalysis]);
+
+    useEffect(() => {
+        setCurrentPage(0);
+    }, [labAnalysis]);
+
+
     return (
         <div className="flex flex-col h-full min-h-screen bg-white">
             <TopNav />
@@ -183,7 +222,6 @@ export default function ConsultPage() {
                     <p className="text-slate-500">Dokter & Chef pribadi Anda</p>
                 </div>
 
-                {/* Tabs */}
                 {/* Tabs */}
                 <div className="flex border-b border-slate-200 mb-8 overflow-x-auto scrollbar-hide">
                     <button
@@ -358,117 +396,186 @@ export default function ConsultPage() {
 
 
                 {activeTab === 'lab' && (
-                    <div className="max-w-2xl space-y-6">
-                        <div
-                            onClick={() => fileInputRef.current?.click()}
-                            className={`border-2 border-dashed p-12 cursor-pointer transition-colors ${selectedImage ? 'border-emerald-500 bg-emerald-50' : 'border-slate-300 hover:border-emerald-400'
-                                }`}
-                        >
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                className="hidden"
-                                accept="image/*"
-                                onChange={handleLabImageUpload}
-                            />
-
-                            {selectedImage ? (
-                                <div>
-                                    <img src={selectedImage} alt="Preview" className="max-h-80 mx-auto object-contain mb-4" />
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); setSelectedImage(null); }}
-                                        className="w-full py-2 bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors"
-                                    >
-                                        Hapus Foto
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="text-center">
-                                    <Upload className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                                    <h3 className="text-lg font-bold text-slate-900 mb-2">Upload Foto Hasil Lab</h3>
-                                    <p className="text-sm text-slate-500">AI akan jelaskan artinya</p>
-                                </div>
-                            )}
-                        </div>
-
-
-                        {selectedImage && !labAnalysis && (
-                            <button
-                                onClick={handleLabAnalyze}
-                                disabled={isLoading}
-                                className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold flex items-center justify-center gap-2 transition-colors"
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Main Content (Left Column) */}
+                        <div className="lg:col-span-2 space-y-6">
+                            <div
+                                onClick={() => fileInputRef.current?.click()}
+                                className={`border-2 border-dashed p-12 cursor-pointer transition-colors ${selectedImage ? 'border-emerald-500 bg-emerald-50' : 'border-slate-300 hover:border-emerald-400'
+                                    }`}
                             >
-                                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-                                Analisa Hasil Lab
-                            </button>
-                        )}
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={handleLabImageUpload}
+                                />
 
-                        {labAnalysis && (
-                            <div className="bg-white border text-left rounded-xl shadow-sm animate-in fade-in slide-in-from-bottom-4 overflow-hidden">
-                                {/* Header: Title + Actions */}
-                                <div className="bg-emerald-50 p-4 flex items-center justify-between border-b border-emerald-100">
-                                    <div className="flex items-center gap-2">
-                                        <Sparkles className="w-5 h-5 text-emerald-600" />
-                                        <h3 className="font-bold text-slate-800">Hasil Analisa AI</h3>
-                                    </div>
-                                    <div className="flex items-center gap-2">
+                                {selectedImage ? (
+                                    <div>
+                                        <img src={selectedImage} alt="Preview" className="max-h-80 mx-auto object-contain mb-4" />
                                         <button
-                                            onClick={handleSaveLab}
-                                            disabled={!user}
-                                            className="px-3 py-1.5 bg-white text-emerald-700 hover:bg-emerald-50 border border-emerald-200 rounded-md text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm"
+                                            onClick={(e) => { e.stopPropagation(); setSelectedImage(null); }}
+                                            className="w-full py-2 bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors"
                                         >
-                                            <Bookmark className="w-4 h-4" />
-                                            Simpan
-                                        </button>
-                                        <button
-                                            onClick={() => { setLabAnalysis(null); setSelectedImage(null); }}
-                                            className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
-                                        >
-                                            <X className="w-5 h-5" />
+                                            Hapus Foto
                                         </button>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="text-center">
+                                        <Upload className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                                        <h3 className="text-lg font-bold text-slate-900 mb-2">Upload Foto Hasil Lab</h3>
+                                        <p className="text-sm text-slate-500">AI akan jelaskan artinya</p>
+                                    </div>
+                                )}
+                            </div>
 
-                                {/* Content */}
-                                <div className="p-6 prose prose-sm md:prose-base max-w-none text-slate-700 
+
+                            {selectedImage && !labAnalysis && (
+                                <button
+                                    onClick={handleLabAnalyze}
+                                    disabled={isLoading}
+                                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold flex items-center justify-center gap-2 transition-colors"
+                                >
+                                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+                                    Analisa Hasil Lab
+                                </button>
+                            )}
+
+                            {labAnalysis && (
+                                <div className="bg-white border text-left rounded-xl shadow-sm animate-in fade-in slide-in-from-bottom-4 overflow-hidden">
+                                    {/* Header: Title + Actions */}
+                                    <div className="bg-emerald-50 p-4 flex items-center justify-between border-b border-emerald-100">
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles className="w-5 h-5 text-emerald-600" />
+                                            <h3 className="font-bold text-slate-800">Hasil Analisa AI</h3>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={handleSaveLab}
+                                                disabled={!user}
+                                                className="px-3 py-1.5 bg-white text-emerald-700 hover:bg-emerald-50 border border-emerald-200 rounded-md text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm"
+                                            >
+                                                <Bookmark className="w-4 h-4" />
+                                                Simpan
+                                            </button>
+                                            <button
+                                                onClick={() => { setLabAnalysis(null); setSelectedImage(null); }}
+                                                className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                                            >
+                                                <X className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Content (Paginated) */}
+                                    <div className="p-6 prose prose-sm md:prose-base max-w-none text-slate-700 
                                     prose-headings:text-slate-900 prose-headings:font-bold prose-headings:mb-3 prose-headings:mt-6
                                     prose-p:text-slate-600 prose-p:leading-relaxed prose-p:mb-4
                                     prose-strong:text-slate-900 prose-strong:font-bold
                                     prose-ul:list-disc prose-ul:pl-5 prose-li:mb-1
-                                    first:prose-headings:mt-0">
-                                    <ReactMarkdown>{labAnalysis}</ReactMarkdown>
-                                </div>
+                                    first:prose-headings:mt-0 min-h-[300px]">
+                                        <ReactMarkdown>
+                                            {pages[currentPage] || ''}
+                                        </ReactMarkdown>
+                                    </div>
 
-                                {/* Footer: Next Action */}
-                                <div className="p-4 bg-slate-50 border-t border-slate-100">
-                                    <p className="text-xs text-slate-500 mb-3 text-center">Ingin menu makan yang sesuai hasil ini?</p>
-                                    <button
-                                        onClick={() => setActiveTab('recipe')}
-                                        className="w-full py-3 bg-orange-500 text-white hover:bg-orange-600 font-bold rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 transform active:scale-[0.98]"
-                                    >
-                                        <ChefHat className="w-5 h-5" />
-                                        Buatkan Resep Khusus
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                                    {/* Pagination Controls */}
+                                    {pages.length > 1 && (
+                                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                            <button
+                                                onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                                                disabled={currentPage === 0}
+                                                className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:hover:bg-transparent transition-colors text-slate-600"
+                                            >
+                                                <ChevronLeft className="w-5 h-5" />
+                                            </button>
 
-                        {/* Tips */}
-                        {!labAnalysis && (
-                            <div className="border-l-4 border-blue-500 pl-4 py-3">
-                                <div className="flex items-start gap-3">
-                                    <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <h3 className="font-semibold text-slate-900 mb-2">Tips Upload</h3>
-                                        <ul className="text-sm text-slate-600 space-y-1">
-                                            <li>• Pastikan foto jelas</li>
-                                            <li>• Semua teks terlihat</li>
-                                            <li>• Cahaya cukup terang</li>
-                                        </ul>
+                                            <span className="text-sm font-medium text-slate-600">
+                                                Halaman {currentPage + 1} dari {pages.length}
+                                            </span>
+
+                                            <button
+                                                onClick={() => setCurrentPage(prev => Math.min(pages.length - 1, prev + 1))}
+                                                disabled={currentPage === pages.length - 1}
+                                                className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:hover:bg-transparent transition-colors text-slate-600"
+                                            >
+                                                <ChevronRight className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Footer: Next Action (Only on last page) */}
+                                    {currentPage === pages.length - 1 && (
+                                        <div className="p-4 bg-slate-50 border-t border-slate-100 animate-in fade-in">
+                                            <p className="text-xs text-slate-500 mb-3 text-center">Ingin menu makan yang sesuai hasil ini?</p>
+                                            <button
+                                                onClick={() => setActiveTab('recipe')}
+                                                className="w-full py-3 bg-orange-500 text-white hover:bg-orange-600 font-bold rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 transform active:scale-[0.98]"
+                                            >
+                                                <ChefHat className="w-5 h-5" />
+                                                Buatkan Resep Khusus
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Tips */}
+                            {!labAnalysis && (
+                                <div className="border-l-4 border-blue-500 pl-4 py-3">
+                                    <div className="flex items-start gap-3">
+                                        <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <h3 className="font-semibold text-slate-900 mb-2">Tips Upload</h3>
+                                            <ul className="text-sm text-slate-600 space-y-1">
+                                                <li>• Pastikan foto jelas</li>
+                                                <li>• Semua teks terlihat</li>
+                                                <li>• Cahaya cukup terang</li>
+                                            </ul>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
+
+                        {/* Sidebar (Right Column) */}
+                        <div className="lg:col-span-1 space-y-4">
+                            <h3 className="font-bold text-slate-900 mb-2">Riwayat Hasil Lab</h3>
+                            {savedLabs.length > 0 ? (
+                                <div className="space-y-3">
+                                    {savedLabs.map((lab) => (
+                                        <div
+                                            key={lab.id}
+                                            onClick={() => {
+                                                setLabAnalysis(lab.analysis);
+                                                setSelectedImage(lab.imageBase64 || null);
+                                                // Scroll to top
+                                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                            }}
+                                            className="p-4 bg-white border border-slate-200 rounded-lg hover:border-emerald-500 hover:shadow-md cursor-pointer transition-all group"
+                                        >
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h4 className="font-semibold text-slate-800 text-sm group-hover:text-emerald-700">
+                                                    {lab.title || 'Hasil Lab'}
+                                                </h4>
+                                                <span className="text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
+                                                    {new Date(lab.createdAt).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-slate-500 line-clamp-2">
+                                                {(lab.analysis || '').substring(0, 100)}...
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                                    <p className="text-sm text-slate-500">Belum ada riwayat tersimpan</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
