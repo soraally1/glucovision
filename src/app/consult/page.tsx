@@ -216,10 +216,22 @@ export default function ConsultPage() {
 
             <main className="flex-1 flex flex-col pt-24 pb-32 px-6 lg:px-8 w-full max-w-6xl mx-auto">
 
-                {/* Header */}
+                {/* Header with Mascot below */}
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-slate-900 mb-1">AI Health Consultant</h1>
                     <p className="text-slate-500">Dokter & Chef pribadi Anda</p>
+
+                    <div className="mt-4 w-32 h-32 relative group">
+                        <div className="absolute inset-0 bg-emerald-500/10 "></div>
+                        <video
+                            src="/Lucoldle.webm"
+                            autoPlay
+                            loop
+                            muted
+                            playsInline
+                            className="w-full h-full object-contain relative z-10 "
+                        />
+                    </div>
                 </div>
 
                 {/* Tabs */}
