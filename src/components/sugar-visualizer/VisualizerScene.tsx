@@ -51,15 +51,16 @@ function SugarCube({ position, delay }: { position: [number, number, number], de
 
     return (
         <mesh ref={meshRef} position={[position[0], startY, position[2]]} castShadow receiveShadow>
-            <boxGeometry args={[0.95, 0.95, 0.95]} /> {/* Slightly smaller for gap */}
+            <boxGeometry args={[0.92, 0.92, 0.92]} /> {/* Slightly smaller for gap */}
             <meshPhysicalMaterial
                 color="#ffffff"
-                roughness={0.4}
-                metalness={0.1}
-                clearcoat={0.3}
-                clearcoatRoughness={0.25}
-                transmission={0.1} // Slight translucency like real sugar
-                thickness={1}
+                roughness={0.1}
+                metalness={0.05}
+                clearcoat={1}
+                clearcoatRoughness={0.1}
+                transmission={0.4} // More translucent like real sugar
+                thickness={0.5}
+                ior={1.45}
             />
         </mesh>
     );
@@ -67,6 +68,7 @@ function SugarCube({ position, delay }: { position: [number, number, number], de
 
 function CubeStack({ count }: { count: number }) {
     const cubes = useMemo(() => {
+        if (count <= 0) return [];
         const items: { position: [number, number, number], id: number }[] = [];
         const baseSize = Math.ceil(Math.pow(count, 1 / 3) * 1.5);
 
@@ -101,7 +103,7 @@ function CubeStack({ count }: { count: number }) {
 }
 
 export default function VisualizerScene({ sugarGrams }: VisualizerSceneProps) {
-    const cubeCount = Math.max(1, Math.round(sugarGrams / 4));
+    const cubeCount = Math.round(sugarGrams / 4);
 
     return (
         <div className="w-full h-full">

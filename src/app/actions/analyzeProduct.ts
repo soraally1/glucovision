@@ -27,7 +27,7 @@ export async function analyzeProduct(imageBase64: string): Promise<AnalysisResul
                     "content": [
                         {
                             "type": "text",
-                            "text": "Analyze this beverage product image. identify the product name and estimate the sugar content per serving (or per container if it looks like a single-serve bottle/can). If you cannot see nutritional info, estimate based on the product type (e.g. Cola ~39g). Return strictly valid JSON: { \"productName\": \"string\", \"sugarContent\": number, \"healthVerdict\": \"Healthy\" | \"Moderate\" | \"Unhealthy\", \"notes\": \"string\" }."
+                            "text": "Anda adalah asisten kesehatan ahli. Analisis gambar produk ini dengan sangat teliti. \n1. Identifikasi nama produk yang tepat.\n2. Cari tabel informasi nilai gizi dan ambil jumlah 'Gula' (Sugar) per sajian.\n3. Jika tabel tidak ada/tidak jelas, berikan estimasi yang edukatif berdasarkan basis data produk serupa.\n4. BERIKAN PENJELASAN (notes) YANG SANGAT DETAIL DALAM BAHASA INDONESIA. Penjelasan harus mencakup apakah produk ini aman untuk penderita diabetes, berapa batas konsumsi harian yang disarankan, dan apa dampaknya jika dikonsumsi berlebihan.\n\nKembalikan respons HANYA dalam format JSON: { \"productName\": \"string\", \"sugarContent\": number, \"healthVerdict\": \"Healthy\" | \"Moderate\" | \"Unhealthy\", \"notes\": \"string\" }."
                         },
                         {
                             "type": "image_url",
@@ -38,12 +38,9 @@ export async function analyzeProduct(imageBase64: string): Promise<AnalysisResul
                     ]
                 }
             ],
-            "model": "meta-llama/llama-4-maverick-17b-128e-instruct",
-            "temperature": 0.1,
+            "model": "meta-llama/llama-guard-4-12b",
+            "temperature": 0,
             "max_tokens": 1024,
-            "top_p": 1,
-            "stream": false,
-            "stop": null,
             "response_format": { type: "json_object" }
         });
 
