@@ -20,6 +20,9 @@ export async function analyzeProduct(imageBase64: string): Promise<AnalysisResul
         // Remove data URL prefix if present
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
+        // Debug log
+        console.log("Starting Groq Analysis with model: llama-3.2-11b-vision-preview");
+
         const chatCompletion = await groq.chat.completions.create({
             "messages": [
                 {
@@ -38,21 +41,29 @@ export async function analyzeProduct(imageBase64: string): Promise<AnalysisResul
                     ]
                 }
             ],
-            "model": "meta-llama/llama-guard-4-12b",
-            "temperature": 0,
+            "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+            "temperature": 0.1,
             "max_tokens": 1024,
             "response_format": { type: "json_object" }
         });
 
         const content = chatCompletion.choices[0].message.content;
-        if (!content) throw new Error('No content from Groq');
+        if (!content) {
+            console.error("Groq returned empty content");
+            throw new Error('No content from Groq');
+        }
 
         const result = JSON.parse(content) as AnalysisResult;
+        console.log("Analysis successful:", result.productName);
         return result;
 
-    } catch (error) {
-        console.error("Groq Analysis Failed:", error);
-        // Fallback/Mock for demo if it fails or API key is invalid (optional, but good for robustness)
-        throw new Error('Failed to analyze product. Please try again.');
+    } catch (error: any) {
+        console.error("Groq Analysis Failed Detail:", error?.message || error);
+
+        // Return a more descriptive error if it's a known issue
+        if (error?.status === 401) throw new Error('API Key Groq tidak valid atau belum dikonfigurasi.');
+        if (error?.status === 429) throw new Error('Batas penggunaan API tercapai. Silakan coba lagi nanti.');
+
+        throw new Error('Gagal menganalisis produk. Pastikan gambar jelas dan coba lagi.');
     }
 }
