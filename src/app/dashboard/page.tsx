@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { Activity, Calendar, ChevronRight, Plus, TrendingUp, TrendingDown, Heart, Target, CheckCircle2, Clock } from 'lucide-react';
+import { Activity, Calendar, ChevronRight, Plus, TrendingUp, TrendingDown, Heart, Target, CheckCircle2, Clock, ShieldAlert } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { getMeasurements } from '@/lib/firebase/firestore';
 import TopNav from '@/components/layout/TopNav';
@@ -224,6 +224,16 @@ export default function DashboardPage() {
                                     <Link href="/sugar-visualizer" className="block border border-slate-200 hover:border-orange-500 p-4 transition-colors">
                                         <h3 className="font-semibold text-slate-900 mb-1">Cek Gula Makanan</h3>
                                         <p className="text-sm text-slate-600">Scan produk dengan AI →</p>
+                                    </Link>
+
+                                    <Link href="/wound-check" className="block border border-slate-200 hover:border-blue-500 p-4 transition-colors relative overflow-hidden group">
+                                        <div className="absolute right-0 top-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                                            <ShieldAlert className="w-12 h-12 text-blue-600" />
+                                        </div>
+                                        <h3 className="font-semibold text-slate-900 mb-1 flex items-center gap-2">
+                                            Cek Luka Kaki <span className="text-[10px] bg-red-100 text-red-600 px-1.5 rounded font-bold">BARU</span>
+                                        </h3>
+                                        <p className="text-sm text-slate-600">Skrining luka diabetes →</p>
                                     </Link>
                                 </div>
                             </div>

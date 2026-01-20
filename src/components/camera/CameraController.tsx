@@ -27,17 +27,15 @@ const CameraController: React.FC<CameraControllerProps> = ({
     const [isLoading, setIsLoading] = useState(true);
     const [isMockMode, setIsMockMode] = useState(false);
 
-    // Initialize camera
+    // Initialize camera safely to prevent AbortError
     useEffect(() => {
+        let mounted = true;
+
         const startCamera = async () => {
             try {
+                if (!mounted) return;
                 setIsLoading(true);
                 setError(null);
-
-                // Check environment
-                // User explicitly requested real camera even on HTTP.
-                // Note: This will likely fail on mobile HTTP due to browser security,
-                // but we are adhering to the request to remove the "Mock Mode" block.
 
                 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                     const constraints = {
@@ -51,17 +49,29 @@ const CameraController: React.FC<CameraControllerProps> = ({
                     };
 
                     const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+                    if (!mounted) {
+                        // Stop stream if component unmounted during load
+                        stream.getTracks().forEach(track => track.stop());
+                        return;
+                    }
+
                     streamRef.current = stream;
 
                     if (videoRef.current) {
                         videoRef.current.srcObject = stream;
-                        videoRef.current.play();
+                        // Avoid AbortError: The play() request was interrupted by a new load request.
+                        // We wrap play in a promise catch, although srcObject assignment is usually enough if handled carefully.
+                        try {
+                            await videoRef.current.play();
+                        } catch (e) {
+                            console.warn("Video play interrupted:", e);
+                        }
                     }
 
                     const videoTrack = stream.getVideoTracks()[0];
                     trackRef.current = videoTrack;
 
-                    // Check for flash capability
                     const capabilities = videoTrack.getCapabilities();
                     if ('torch' in capabilities) {
                         setHasFlash(true);
@@ -71,27 +81,26 @@ const CameraController: React.FC<CameraControllerProps> = ({
                         onStreamReady(stream);
                     }
                 } else {
-                    // If API is truly missing (and not just blocked), we might still land here.
-                    // But we removed the explicit "throw" that forced Mock Mode.
                     throw new Error("Browser API kamera tidak ditemukan (Cek HTTPS/Localhost)");
                 }
 
             } catch (err: any) {
+                if (!mounted) return;
                 console.error("Camera init failed:", err);
-                setError(`Gagal akses kamera: ${err.message}. (Cek koneksi HTTPS atau gunakan Localhost)`);
-                // We do NOT auto-switch to mock mode anymore per user request.
-                // setIsMockMode(true); 
+                setError(`Gagal akses kamera: ${err.message}`);
             } finally {
-                setIsLoading(false);
+                if (mounted) setIsLoading(false);
             }
         };
 
         startCamera();
 
         return () => {
-            // Cleanup
+            mounted = false;
+            // Cleanup: Stop all tracks
             if (streamRef.current) {
                 streamRef.current.getTracks().forEach(track => track.stop());
+                streamRef.current = null;
             }
         };
     }, [onStreamReady, facingMode]);

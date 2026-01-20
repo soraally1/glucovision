@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Activity, FlaskConical, Settings, Stethoscope, ScanBarcode } from 'lucide-react';
+import { LayoutDashboard, Activity, FlaskConical, Settings, Stethoscope, ScanBarcode, ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 
 export default function BottomNav() {
@@ -18,6 +18,7 @@ export default function BottomNav() {
         { href: '/dashboard', label: 'Home', icon: LayoutDashboard, devOnly: false },
         { href: '/measure', label: 'Ukur', icon: Activity, devOnly: false },
         { href: '/sugar-visualizer', label: 'Gluco', icon: ScanBarcode, devOnly: false },
+        { href: '/wound-check', label: 'Luka', icon: ShieldAlert, devOnly: false },
         { href: '/consult', label: 'Konsul', icon: Stethoscope, devOnly: false },
         { href: '/training', label: 'AI Lab', icon: FlaskConical, devOnly: true },
         { href: '/calibration', label: 'Setup', icon: Settings, devOnly: true },
